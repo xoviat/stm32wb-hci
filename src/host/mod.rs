@@ -3,13 +3,13 @@
 //! # Ideas for discussion and improvements
 //!
 //! - Remove `cmd_link` and `event_link` modules. These provide alternative mechanisms for writing
-//! to and reading from the controller, respectively, without the packet identifier byte. The
-//! open-source Bluetooth implementations I have found (admittedly, I haven't looked hard) only
-//! support sending the packet ID, as `uart` does. In that case, it would make sense to also remove
-//! `uart` and move its contents up one level.
+//!   to and reading from the controller, respectively, without the packet identifier byte. The
+//!   open-source Bluetooth implementations I have found (admittedly, I haven't looked hard) only
+//!   support sending the packet ID, as `uart` does. In that case, it would make sense to also remove
+//!   `uart` and move its contents up one level.
 
-use crate::event::{NumberOfCompletedPackets, NUMBER_OF_COMPLETED_PACKETS_MAX_LEN};
 use crate::ConnectionHandle;
+use crate::event::{NUMBER_OF_COMPLETED_PACKETS_MAX_LEN, NumberOfCompletedPackets};
 use byteorder::{ByteOrder, LittleEndian};
 use core::convert::Into;
 use core::fmt::{Debug, Formatter, Result as FmtResult};
@@ -64,7 +64,7 @@ pub trait HostHci {
     /// - `conn_handle` indicates which connection is to be disconnected.
     /// - `reason` indicates the reason for ending the connection. The remote Controller will
     ///   receive the Reason command parameter in the
-    /// [Disconnection Complete](crate::event::Event::DisconnectionComplete) event.
+    ///   [Disconnection Complete](crate::event::Event::DisconnectionComplete) event.
     ///
     /// See the Bluetooth spec, Vol 2, Part E, Section 7.1.6.
     ///

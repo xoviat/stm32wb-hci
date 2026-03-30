@@ -322,16 +322,16 @@ pub enum VendorEvent {
     /// When it is enabled with [set_event_mast](crate::vendor::command::gatt::GattCommands::set_event_mask),
     /// this event is generated instead of [GATT Indication](VendorEvent::GattIndication) event.
     ///
-    /// This event should be used instead of `ACI_GATT_INDICATION_EVENT` when `ATT_MTU
-    /// > (BLE_EVT_MAX_PARAM_LEN - 4)` i.e. `ATT_MTU > 251` for `BLE_EVT_MAX_PARAM_LEN`
+    /// This event should be used instead of `ACI_GATT_INDICATION_EVENT` when
+    /// `ATT_MTU > (BLE_EVT_MAX_PARAM_LEN - 4)` i.e. `ATT_MTU > 251` for `BLE_EVT_MAX_PARAM_LEN`
     /// default value.
     GattIndicationExt(AttributeValueExt),
 
     /// When it is enabled with [set_event_mast](crate::vendor::command::gatt::GattCommands::set_event_mask),
     /// this event is generated instead of [GATT Notification](VendorEvent::GattNotification) event.
     ///
-    /// This event should be used instead of `ACI_GATT_INDICATION_EVENT` when `ATT_MTU
-    /// > (BLE_EVT_MAX_PARAM_LEN - 4)` i.e. `ATT_MTU > 251` for `BLE_EVT_MAX_PARAM_LEN`
+    /// This event should be used instead of `ACI_GATT_INDICATION_EVENT` when
+    /// `ATT_MTU > (BLE_EVT_MAX_PARAM_LEN - 4)` i.e. `ATT_MTU > 251` for `BLE_EVT_MAX_PARAM_LEN`
     /// default value.
     GattNotificationExt(AttributeValueExt),
 
@@ -966,17 +966,17 @@ fn to_l2cap_connection_update_accepted_result(
     }
 }
 
-fn extract_l2cap_connection_update_response_result(
-    buffer: &[u8],
-) -> Result<L2CapConnectionUpdateResult, VendorError> {
-    match buffer[5] {
-        0x01 => Ok(L2CapConnectionUpdateResult::CommandRejected(
-            LittleEndian::read_u16(&buffer[9..]).try_into()?,
-        )),
-        0x13 => to_l2cap_connection_update_accepted_result(LittleEndian::read_u16(&buffer[9..])),
-        _ => Err(VendorError::BadL2CapConnectionResponseCode(buffer[5])),
-    }
-}
+// fn extract_l2cap_connection_update_response_result(
+//     buffer: &[u8],
+// ) -> Result<L2CapConnectionUpdateResult, VendorError> {
+//     match buffer[5] {
+//         0x01 => Ok(L2CapConnectionUpdateResult::CommandRejected(
+//             LittleEndian::read_u16(&buffer[9..]).try_into()?,
+//         )),
+//         0x13 => to_l2cap_connection_update_accepted_result(LittleEndian::read_u16(&buffer[9..])),
+//         _ => Err(VendorError::BadL2CapConnectionResponseCode(buffer[5])),
+//     }
+// }
 
 fn to_l2cap_connection_update_response(
     buffer: &[u8],
@@ -1627,7 +1627,7 @@ fn to_att_find_information_response(
 
 fn to_handle_uuid16_pairs(buffer: &[u8]) -> Result<HandleUuidPairs, VendorError> {
     const PAIR_LEN: usize = 4;
-    if buffer.len() % PAIR_LEN != 0 {
+    if !buffer.len().is_multiple_of(PAIR_LEN) {
         return Err(VendorError::AttFindInformationResponsePartialPair16);
     }
 
@@ -1647,7 +1647,7 @@ fn to_handle_uuid16_pairs(buffer: &[u8]) -> Result<HandleUuidPairs, VendorError>
 
 fn to_handle_uuid128_pairs(buffer: &[u8]) -> Result<HandleUuidPairs, VendorError> {
     const PAIR_LEN: usize = 18;
-    if buffer.len() % PAIR_LEN != 0 {
+    if !buffer.len().is_multiple_of(PAIR_LEN) {
         return Err(VendorError::AttFindInformationResponsePartialPair128);
     }
 
@@ -1757,7 +1757,7 @@ fn to_att_find_by_value_type_response(
     require_len!(buffer, 5 + data_len);
 
     let pair_buffer = &buffer[5..];
-    if pair_buffer.len() % PAIR_LEN != 0 {
+    if !pair_buffer.len().is_multiple_of(PAIR_LEN) {
         return Err(crate::event::Error::Vendor(
             VendorError::AttFindByTypeValuePartial,
         ));
@@ -1879,7 +1879,10 @@ fn to_att_read_by_type_response(
 
     let handle_value_pair_len = buffer[4] as usize;
     let handle_value_pair_buf = &buffer[6..];
-    if handle_value_pair_buf.len() % handle_value_pair_len != 0 {
+    if !handle_value_pair_buf
+        .len()
+        .is_multiple_of(handle_value_pair_len)
+    {
         return Err(crate::event::Error::Vendor(
             VendorError::AttReadByTypeResponsePartial,
         ));
@@ -2058,7 +2061,7 @@ fn to_att_read_by_group_type_response(
 
     let attribute_group_len = buffer[4] as usize;
 
-    if buffer[6..].len() % attribute_group_len != 0 {
+    if !buffer[6..].len().is_multiple_of(attribute_group_len) {
         return Err(crate::event::Error::Vendor(
             VendorError::AttReadByGroupTypeResponsePartial,
         ));
@@ -2651,7 +2654,7 @@ fn to_att_read_multiple_permit_request(
     require_len_at_least!(buffer, 5);
 
     let data_len = buffer[4] as usize;
-    if data_len % 2 != 0 {
+    if !data_len.is_multiple_of(2) {
         return Err(crate::event::Error::Vendor(
             VendorError::AttReadMultiplePermitRequestPartial,
         ));
@@ -3018,7 +3021,7 @@ pub struct GattMultiNotification {
     pub conn_handle: ConnectionHandle,
     /// - Bits 14-0: offset in octets from which Attribute_Value data starts.
     /// - Bit 15 is used as flag: when set to 1 it indicates what more data are to come
-    /// (fragmented event in case of long attribute data)
+    ///   (fragmented event in case of long attribute data)
     pub offset: u16,
     /// Length of the data in bytes
     pub data_len: u16,
@@ -3048,9 +3051,9 @@ pub struct GattReadExt {
     /// The connection handle related to the event.
     pub conn_handle: ConnectionHandle,
     /// - Bits 14-0: offset in octets from which Attribute_Value data
-    /// starts.
+    ///   starts.
     /// - Bit 15 is used as flag: when set to 1 it indicates that more
-    /// data are to come (fragmented event in case of long attribute data).
+    ///   data are to come (fragmented event in case of long attribute data).
     pub offset: u16,
 
     // Number of valid bytes in value_buf
@@ -3092,9 +3095,9 @@ pub struct AttributeValueExt {
     /// The handle of the attribute
     pub attribute_handle: AttributeHandle,
     /// - Bits 14-0: offset in octets from which Attribute_Value data
-    /// starts.
+    ///   starts.
     /// - Bit 15 is used as flag: when set to 1 it indicates that more
-    /// data are to come (fragmented event in case of long attribute data).
+    ///   data are to come (fragmented event in case of long attribute data).
     pub offset: u16,
 
     // Number of valid bytes in value_buf

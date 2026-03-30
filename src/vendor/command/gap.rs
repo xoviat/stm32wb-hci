@@ -7,12 +7,12 @@ use crate::types::extended_advertisement::{
     AdvSet, AdvertisingEvent, AdvertisingOperation, AdvertisingPhy, ExtendedAdvertisingInterval,
 };
 pub use crate::types::{ConnectionInterval, ExpectedConnectionLength, ScanWindow};
+use crate::{AdvertisingHandle, ConnectionHandle, Controller};
+pub use crate::{BdAddr, BdAddrType};
 use crate::{
     host::{Channels, PeerAddrType, ScanFilterPolicy, ScanType},
     types::extended_advertisement::AdvertisingMode,
 };
-use crate::{AdvertisingHandle, ConnectionHandle, Controller};
-pub use crate::{BdAddr, BdAddrType};
 use byteorder::{ByteOrder, LittleEndian};
 use core::time::Duration;
 
@@ -59,7 +59,6 @@ pub trait GapCommands {
     /// event. The controller starts the advertising after this and when advertising timeout happens
     /// (i.e. limited discovery period has elapsed), the controller generates an
     /// [GAP Limited Discoverable Complete](crate::vendor::event::VendorEvent::GapLimitedDiscoverableTimeout) event.
-
     async fn set_limited_discoverable(
         &mut self,
         params: &DiscoverableParameters<'_, '_>,
@@ -184,8 +183,9 @@ pub trait GapCommands {
     ///
     /// - A [Command Complete](crate::vendor::event::command::VendorReturnParameters::GapSetAuthorizationRequirement) event
     ///   is generated.
-    /// - If authorization is required, then a [GAP Authorization Request](crate::vendor::event::VendorEvent::GapAuthorizationRequest)
-    /// event is generated.
+    /// - If authorization is required, then a
+    ///   [GAP Authorization Request](crate::vendor::event::VendorEvent::GapAuthorizationRequest)
+    ///   event is generated.
     async fn set_authorization_requirement(
         &mut self,
         conn_handle: crate::ConnectionHandle,
@@ -1422,16 +1422,16 @@ impl<'a, 'b> DiscoverableParameters<'a, 'b> {
             _ => return Err(Error::BadAdvertisingType(self.advertising_type)),
         }
 
-        if let Some(interval) = self.advertising_interval {
-            if interval.0 > interval.1 {
-                return Err(Error::BadAdvertisingInterval(interval.0, interval.1));
-            }
+        if let Some(interval) = self.advertising_interval
+            && interval.0 > interval.1
+        {
+            return Err(Error::BadAdvertisingInterval(interval.0, interval.1));
         }
 
-        if let (Some(min), Some(max)) = self.conn_interval {
-            if min > max {
-                return Err(Error::BadConnectionInterval(min, max));
-            }
+        if let (Some(min), Some(max)) = self.conn_interval
+            && min > max
+        {
+            return Err(Error::BadConnectionInterval(min, max));
         }
 
         Ok(())
@@ -1484,16 +1484,16 @@ impl<'a, 'b> DiscoverableParameters<'a, 'b> {
         let conn_interval_index = advertising_data_len_index + 1 + self.advertising_data.len();
         LittleEndian::write_u16(
             &mut bytes[conn_interval_index..],
-            if self.conn_interval.0.is_some() {
-                to_conn_interval_value(self.conn_interval.0.unwrap())
+            if let Some(conn_interval) = self.conn_interval.0 {
+                to_conn_interval_value(conn_interval)
             } else {
                 NO_SPECIFIC_CONN_INTERVAL
             },
         );
         LittleEndian::write_u16(
             &mut bytes[(conn_interval_index + 2)..],
-            if self.conn_interval.1.is_some() {
-                to_conn_interval_value(self.conn_interval.1.unwrap())
+            if let Some(conn_interval) = self.conn_interval.1 {
+                to_conn_interval_value(conn_interval)
             } else {
                 NO_SPECIFIC_CONN_INTERVAL
             },
@@ -1710,10 +1710,10 @@ impl AuthenticationRequirements {
             ));
         }
 
-        if let Pin::Fixed(pin) = self.fixed_pin {
-            if pin > 999_999 {
-                return Err(Error::BadFixedPin(pin));
-            }
+        if let Pin::Fixed(pin) = self.fixed_pin
+            && pin > 999_999
+        {
+            return Err(Error::BadFixedPin(pin));
         }
 
         if self.identity_address_type != AddressType::Public
@@ -2498,7 +2498,7 @@ pub struct AdvSetConfig {
     /// Values:
     /// - 0x00: `AUX_QDV_IND` shall be sent prior to the next advertising event
     /// - 0x01 .. 0xFF: Maximum advertising events to the Controller can skip
-    /// before sending the `AUX_QDV_IND` packets on the secondary physical channel.
+    ///   before sending the `AUX_QDV_IND` packets on the secondary physical channel.
     pub secondary_adv_max_skip: u8,
     /// Secondary advertising PHY
     pub secondary_adv_phy: AdvertisingPhy,

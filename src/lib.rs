@@ -481,7 +481,7 @@ impl core::convert::From<Status> for u8 {
 /// Values:
 /// - 0x0000 .. 0xEFFF: Unenhanced ATT bearer
 /// - 0xEA00 .. 0xEA3F: Enhanced ATT bearer (the LSB-byte of the parameter is
-/// the connection oriented channel index)
+///   the connection oriented channel index)
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ConnectionHandle(pub u16);

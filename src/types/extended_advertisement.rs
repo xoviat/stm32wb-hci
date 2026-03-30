@@ -171,8 +171,8 @@ pub struct AdvSet {
     /// Values:
     /// - 0x00: No maximum number of advertising events
     /// - 0x01 .. 0xFF: Maximum number of extended advertising events the
-    /// Controller shall attempt to send prior to terminating the extended
-    /// advertising
+    ///   Controller shall attempt to send prior to terminating the extended
+    ///   advertising
     pub max_extended_adv_events: u8,
 }
 
