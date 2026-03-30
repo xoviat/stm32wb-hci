@@ -2340,8 +2340,11 @@ impl ObservationProcedureParameters {
 
 /// Parameters for [GAP Numeric Comparison Confirm Yes or No](crate::vendor::command::gap::GapCommands::numeric_comparison_value_confirm_yes_no)
 pub struct NumericComparisonValueConfirmYesNoParameters {
-    conn_handle: ConnectionHandle,
-    confirm_yes_no: bool,
+    /// Connection handle for which the command applies.
+    pub conn_handle: ConnectionHandle,
+
+    /// Indicates if the numeric values shown on both local and peer device are different or equal.
+    pub confirm_yes_no: bool,
 }
 
 impl NumericComparisonValueConfirmYesNoParameters {
@@ -2383,13 +2386,13 @@ pub enum OobDeviceType {
 /// Parameters for [GAP Set OOB Data](GapCommands::set_oob_data)
 pub struct SetOobDataParameters {
     /// OOB Device type
-    device_type: OobDeviceType,
+    pub device_type: OobDeviceType,
     /// Identity address
-    address: BdAddrType,
+    pub address: BdAddrType,
     /// OOB Data type
-    oob_data_type: OobDataType,
+    pub oob_data_type: OobDataType,
     /// Pairing Data received through OOB from remote device
-    oob_data: [u8; 16],
+    pub oob_data: [u8; 16],
 }
 
 impl SetOobDataParameters {
