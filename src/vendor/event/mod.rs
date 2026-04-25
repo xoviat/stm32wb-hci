@@ -236,6 +236,10 @@ pub enum VendorEvent {
     /// This event is generated when an indication is received from the server.
     GattIndication(AttributeValue),
 
+    #[cfg(feature = "wba")]
+    /// This event is generated when a completed indication is received from the server.
+    GattIndicationComplete(GattIndicationComplete),
+
     /// This event is generated when an notification is received from the server.
     GattNotification(AttributeValue),
 
@@ -749,6 +753,7 @@ impl VendorEvent {
                 ConnectionHandle(LittleEndian::read_u16(&buffer[2..]))
             })),
             0x0406 => Ok(VendorEvent::GapDeviceFound(to_gap_device_found(buffer)?)),
+            #[cfg(feature = "wb")]
             0x0407 => Ok(VendorEvent::GapProcedureComplete(
                 to_gap_procedure_complete(buffer)?,
             )),
@@ -769,8 +774,13 @@ impl VendorEvent {
             0x0801 => Ok(VendorEvent::L2CapProcedureTimeout(
                 to_l2cap_procedure_timeout(buffer)?,
             )),
+            #[cfg(feature = "wb")]
             0x0802 => Ok(VendorEvent::L2CapConnectionUpdateRequest(
                 to_l2cap_connection_update_request(buffer)?,
+            )),
+            #[cfg(feature = "wba")]
+            0x0802 => Ok(VendorEvent::AttExchangeMtuResponse(
+                to_att_exchange_mtu_resp(buffer)?,
             )),
             0x080A => Ok(VendorEvent::L2CapCommandReject(to_l2cap_command_reject(
                 buffer,
@@ -797,20 +807,43 @@ impl VendorEvent {
             0x0C01 => Ok(VendorEvent::GattAttributeModified(
                 to_gatt_attribute_modified(buffer)?,
             )),
+            #[cfg(feature = "wba")]
+            0x0C02 => Ok(VendorEvent::GapProcedureComplete(
+                to_gap_procedure_complete(buffer)?,
+            )),
+            #[cfg(feature = "wb")]
             0x0C02 => Ok(VendorEvent::GattProcedureTimeout(to_conn_handle(buffer)?)),
+            #[cfg(feature = "wba")]
+            0x0C03 => Ok(VendorEvent::GattNotificationComplete(
+                to_gatt_notification_complete(buffer)?,
+            )),
+            #[cfg(feature = "wb")]
             0x0C03 => Ok(VendorEvent::AttExchangeMtuResponse(
                 to_att_exchange_mtu_resp(buffer)?,
             )),
+            #[cfg(feature = "wb")]
             0x0C04 => Ok(VendorEvent::AttFindInformationResponse(
                 to_att_find_information_response(buffer)?,
             )),
+            #[cfg(feature = "wba")]
+            0x0C04 => Ok(VendorEvent::GattIndicationComplete({
+                to_gatt_indication_complete(buffer)?
+            })),
+            #[cfg(feature = "wb")]
             0x0C05 => Ok(VendorEvent::AttFindByTypeValueResponse(
                 to_att_find_by_value_type_response(buffer)?,
             )),
+            #[cfg(feature = "wba")]
+            0x0C05 => Ok(VendorEvent::GattProcedureTimeout(to_conn_handle(buffer)?)),
             0x0C06 => Ok(VendorEvent::AttReadByTypeResponse(
                 to_att_read_by_type_response(buffer)?,
             )),
             0x0C07 => Ok(VendorEvent::AttReadResponse(to_att_read_response(buffer)?)),
+            #[cfg(feature = "wba")]
+            0x0C08 => Ok(VendorEvent::GattTxPoolAvailable(to_gatt_tx_pool_available(
+                buffer,
+            )?)),
+            #[cfg(feature = "wb")]
             0x0C08 => Ok(VendorEvent::AttReadBlobResponse(to_att_read_response(
                 buffer,
             )?)),
@@ -846,6 +879,7 @@ impl VendorEvent {
             0x0C15 => Ok(VendorEvent::AttReadMultiplePermitRequest(
                 to_att_read_multiple_permit_request(buffer)?,
             )),
+            #[cfg(feature = "wb")]
             0x0C16 => Ok(VendorEvent::GattTxPoolAvailable(to_gatt_tx_pool_available(
                 buffer,
             )?)),
@@ -862,10 +896,6 @@ impl VendorEvent {
                 require_len!(buffer[2..], 2);
                 AttributeHandle(LittleEndian::read_u16(&buffer[2..]))
             })),
-            #[cfg(feature = "wba")]
-            0x0C1B => Ok(VendorEvent::GattNotificationComplete(
-                to_gatt_notification_complete(buffer)?,
-            )),
             0x0C1D => Ok(VendorEvent::GattReadExt(to_gatt_read_ext(buffer)?)),
             0x0C1E => Ok(VendorEvent::GattIndicationExt(to_attribute_value_ext(
                 buffer,
@@ -927,6 +957,7 @@ macro_rules! require_l2cap_event_data_len {
     };
 }
 
+#[cfg(feature = "wb")]
 macro_rules! require_l2cap_len {
     ($actual:expr, $expected:expr) => {
         if $actual != $expected {
@@ -1072,6 +1103,7 @@ pub struct L2CapConnectionUpdateRequest {
     pub conn_interval: ConnectionInterval,
 }
 
+#[cfg(feature = "wb")]
 fn to_l2cap_connection_update_request(
     buffer: &[u8],
 ) -> Result<L2CapConnectionUpdateRequest, crate::event::Error> {
@@ -1578,7 +1610,9 @@ pub struct Uuid128(pub [u8; 16]);
 #[derive(Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum HandleUuidPairs {
+    #[allow(dead_code)]
     Format16(usize, [HandleUuid16Pair; MAX_FORMAT16_PAIR_COUNT]),
+    #[allow(dead_code)]
     Format128(usize, [HandleUuid128Pair; MAX_FORMAT128_PAIR_COUNT]),
 }
 
@@ -1661,6 +1695,7 @@ impl<'a> Iterator for HandleUuid128PairIterator<'a> {
     }
 }
 
+#[cfg(feature = "wb")]
 fn to_att_find_information_response(
     buffer: &[u8],
 ) -> Result<AttFindInformationResponse, crate::event::Error> {
@@ -1684,7 +1719,7 @@ fn to_att_find_information_response(
 }
 
 // [0x4, 0xc, 0x1, 0x8, 0x1, 0x8, 0x12, 0x0, 0x3, 0x5, 0x13, 0x0, 0x2, 0x29]
-
+#[cfg(feature = "wb")]
 fn to_handle_uuid16_pairs(buffer: &[u8]) -> Result<HandleUuidPairs, VendorError> {
     const PAIR_LEN: usize = 4;
     if !buffer.len().is_multiple_of(PAIR_LEN) {
@@ -1705,6 +1740,7 @@ fn to_handle_uuid16_pairs(buffer: &[u8]) -> Result<HandleUuidPairs, VendorError>
     Ok(HandleUuidPairs::Format16(count, pairs))
 }
 
+#[cfg(feature = "wb")]
 fn to_handle_uuid128_pairs(buffer: &[u8]) -> Result<HandleUuidPairs, VendorError> {
     const PAIR_LEN: usize = 18;
     if !buffer.len().is_multiple_of(PAIR_LEN) {
@@ -1806,6 +1842,7 @@ impl<'a> Iterator for HandleInfoPairIterator<'a> {
     }
 }
 
+#[cfg(feature = "wb")]
 fn to_att_find_by_value_type_response(
     buffer: &[u8],
 ) -> Result<AttFindByTypeValueResponse, crate::event::Error> {
@@ -2315,6 +2352,29 @@ fn to_gatt_procedure_complete(buffer: &[u8]) -> Result<GattProcedureComplete, cr
     Ok(GattProcedureComplete {
         conn_handle: ConnectionHandle(LittleEndian::read_u16(&buffer[2..])),
         status: buffer[4].try_into()?,
+    })
+}
+
+#[cfg(feature = "wba")]
+/// This event is generated when a GATT indication is completed
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct GattIndicationComplete {
+    /// The connection handle for which the GATT procedure has completed.
+    pub conn_handle: ConnectionHandle,
+    ///The attribute handle that generated this response.
+    pub attribute_handle: AttributeHandle,
+}
+
+#[cfg(feature = "wba")]
+fn to_gatt_indication_complete(
+    buffer: &[u8],
+) -> Result<GattIndicationComplete, crate::event::Error> {
+    require_len!(buffer, 4);
+
+    Ok(GattIndicationComplete {
+        conn_handle: ConnectionHandle(LittleEndian::read_u16(&buffer[2..])),
+        attribute_handle: AttributeHandle(LittleEndian::read_u16(&buffer[4..])),
     })
 }
 
