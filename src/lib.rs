@@ -515,9 +515,11 @@ pub enum BdAddrType {
     /// Random address.
     Random(BdAddr),
 
+    #[cfg(feature = "wba")]
     /// Public identity address.
     PublicIdentity(BdAddr),
 
+    #[cfg(feature = "wba")]
     /// Random identity address.
     RandomIdentity(BdAddr),
 }
@@ -536,10 +538,12 @@ impl BdAddrType {
                 bytes[0] = 1;
                 bytes[1..7].copy_from_slice(&addr.0);
             }
+            #[cfg(feature = "wba")]
             BdAddrType::PublicIdentity(addr) => {
                 bytes[0] = 2;
                 bytes[1..7].copy_from_slice(&addr.0);
             }
+            #[cfg(feature = "wba")]
             BdAddrType::RandomIdentity(addr) => {
                 bytes[0] = 3;
                 bytes[1..7].copy_from_slice(&addr.0);
@@ -563,7 +567,9 @@ pub fn to_bd_addr_type(bd_addr_type: u8, addr: BdAddr) -> Result<BdAddrType, BdA
     match bd_addr_type {
         0 => Ok(BdAddrType::Public(addr)),
         1 => Ok(BdAddrType::Random(addr)),
+        #[cfg(feature = "wba")]
         2 => Ok(BdAddrType::PublicIdentity(addr)),
+        #[cfg(feature = "wba")]
         3 => Ok(BdAddrType::RandomIdentity(addr)),
         _ => Err(BdAddrTypeError(bd_addr_type)),
     }
