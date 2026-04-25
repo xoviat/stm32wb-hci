@@ -77,6 +77,9 @@
 #![no_std]
 #![allow(async_fn_in_trait)]
 
+#[cfg(all(feature = "wb", feature = "wba"))]
+compile_error!("Features `wb` and `wba` cannot be enabled at the same time.");
+
 extern crate byteorder;
 
 // This must go FIRST so that all the other modules see its macros.
@@ -494,12 +497,12 @@ pub struct ConnectionHandle(pub u16);
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct AdvertisingHandle(pub u8);
 
-/// Newtype for BDADDR.
+/// BLE Address (6 bytes)
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct BdAddr(pub [u8; 6]);
 
-/// Potential values for BDADDR
+/// BLE Address Type
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum BdAddrType {
@@ -508,6 +511,12 @@ pub enum BdAddrType {
 
     /// Random address.
     Random(BdAddr),
+
+    /// Public identity address.
+    PublicIdentity(BdAddr),
+
+    /// Random identity address.
+    RandomIdentity(BdAddr),
 }
 
 impl BdAddrType {
@@ -522,6 +531,14 @@ impl BdAddrType {
             }
             BdAddrType::Random(addr) => {
                 bytes[0] = 1;
+                bytes[1..7].copy_from_slice(&addr.0);
+            }
+            BdAddrType::PublicIdentity(addr) => {
+                bytes[0] = 2;
+                bytes[1..7].copy_from_slice(&addr.0);
+            }
+            BdAddrType::RandomIdentity(addr) => {
+                bytes[0] = 3;
                 bytes[1..7].copy_from_slice(&addr.0);
             }
         }
@@ -543,6 +560,8 @@ pub fn to_bd_addr_type(bd_addr_type: u8, addr: BdAddr) -> Result<BdAddrType, BdA
     match bd_addr_type {
         0 => Ok(BdAddrType::Public(addr)),
         1 => Ok(BdAddrType::Random(addr)),
+        2 => Ok(BdAddrType::PublicIdentity(addr)),
+        3 => Ok(BdAddrType::RandomIdentity(addr)),
         _ => Err(BdAddrTypeError(bd_addr_type)),
     }
 }

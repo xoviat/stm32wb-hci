@@ -61,6 +61,7 @@ pub enum VendorEvent {
     /// central device.
     GapPeripheralSecurityInitiated,
 
+    #[cfg(feature = "wb")]
     /// This event is generated on the peripheral when a `gap_peripheral_security_request` is called
     /// to reestablish the bond with the central device but the central device has lost the
     /// bond. When this event is received, the upper layer has to issue the command
@@ -70,6 +71,21 @@ pub enum VendorEvent {
     /// order to create a new bond the central device has to launch `gap_send_pairing_request` with
     /// `force_rebond` set to `true`.
     GapBondLost,
+
+    #[cfg(feature = "wba")]
+    /// This event is generated on the peripheral when a `gap_peripheral_security_request` is called
+    /// to reestablish the bond with the central device but the central device has lost the
+    /// bond. When this event is received, the upper layer has to issue the command
+    /// `gap_allow_rebond` in order to allow the peripheral to continue the pairing process with the
+    /// central device. On the central device, this event is raised when `gap_send_pairing_request`
+    /// is called to reestablish a bond with a peripheral but the peripheral has lost the bond. In
+    /// order to create a new bond the central device has to launch `gap_send_pairing_request` with
+    /// `force_rebond` set to `true`.
+    GapBondLost(ConnectionHandle),
+
+    #[cfg(feature = "wba")]
+    /// Gap pairing request.
+    GapPairingRequest(GapPairingRequest),
 
     /// The event is given by the GAP layer to the upper layers when a device is discovered during
     /// scanning as a consequence of one of the GAP procedures started by the upper layers.
@@ -303,11 +319,19 @@ pub enum VendorEvent {
     /// This event is generated when a Multiple Handle Value Notification is received from the server.
     GattMultiNotification(GattMultiNotification),
 
+    #[cfg(feature = "wb")]
     /// This event is generated on server side after the transmission of all notifications linked with
     /// the a local update of a characteristic value (if it is enabled at the creation of the characteristic
     /// with [GATT Notify Notification Completion](crate::vendor::command::gatt::CharacteristicEvent) mask
     /// and if the characteristic supports notifications).
     GattNotificationComplete(AttributeHandle),
+
+    #[cfg(feature = "wba")]
+    /// This event is generated on server side after the transmission of all notifications linked with
+    /// the a local update of a characteristic value (if it is enabled at the creation of the characteristic
+    /// with [GATT Notify Notification Completion](crate::vendor::command::gatt::CharacteristicEvent) mask
+    /// and if the characteristic supports notifications).
+    GattNotificationComplete(GattNotificationComplete),
 
     /// When it is enabled with [set_event_mast](crate::vendor::command::gatt::GattCommands::set_event_mask),
     /// this event is generated instead of [ATT Read Response](VendorEvent::AttReadResponse) /
@@ -717,7 +741,13 @@ impl VendorEvent {
                 buffer,
             )?)),
             0x0404 => Ok(VendorEvent::GapPeripheralSecurityInitiated),
+            #[cfg(feature = "wb")]
             0x0405 => Ok(VendorEvent::GapBondLost),
+            #[cfg(feature = "wba")]
+            0x0405 => Ok(VendorEvent::GapBondLost({
+                require_len!(buffer[2..], 2);
+                ConnectionHandle(LittleEndian::read_u16(&buffer[2..]))
+            })),
             0x0406 => Ok(VendorEvent::GapDeviceFound(to_gap_device_found(buffer)?)),
             0x0407 => Ok(VendorEvent::GapProcedureComplete(
                 to_gap_procedure_complete(buffer)?,
@@ -729,6 +759,10 @@ impl VendorEvent {
             0x040A => Ok(VendorEvent::GapKeypressNotification(
                 to_keypress_notification(buffer)?,
             )),
+            #[cfg(feature = "wba")]
+            0x040B => Ok(VendorEvent::GapPairingRequest({
+                to_gap_pairing_request(buffer)?
+            })),
             0x0800 => Ok(VendorEvent::L2CapConnectionUpdateResponse(
                 to_l2cap_connection_update_response(buffer)?,
             )),
@@ -823,10 +857,15 @@ impl VendorEvent {
             0x0C1A => Ok(VendorEvent::GattMultiNotification(
                 to_gatt_multi_notification(buffer)?,
             )),
+            #[cfg(feature = "wb")]
             0x0C1B => Ok(VendorEvent::GattNotificationComplete({
                 require_len!(buffer[2..], 2);
                 AttributeHandle(LittleEndian::read_u16(&buffer[2..]))
             })),
+            #[cfg(feature = "wba")]
+            0x0C1B => Ok(VendorEvent::GattNotificationComplete(
+                to_gatt_notification_complete(buffer)?,
+            )),
             0x0C1D => Ok(VendorEvent::GattReadExt(to_gatt_read_ext(buffer)?)),
             0x0C1E => Ok(VendorEvent::GattIndicationExt(to_attribute_value_ext(
                 buffer,
@@ -1397,6 +1436,7 @@ impl Debug for GattAttributeModified {
     }
 }
 
+#[cfg(feature = "wb")]
 fn to_gatt_attribute_modified(buffer: &[u8]) -> Result<GattAttributeModified, crate::event::Error> {
     require_len_at_least!(buffer, 10);
 
@@ -1410,6 +1450,26 @@ fn to_gatt_attribute_modified(buffer: &[u8]) -> Result<GattAttributeModified, cr
     Ok(GattAttributeModified {
         conn_handle: ConnectionHandle(LittleEndian::read_u16(&buffer[2..])),
         attr_handle: AttributeHandle(LittleEndian::read_u16(&buffer[4..])),
+        offset: (offset_field & 0x7FFF),
+        data_len,
+        data_buf: data,
+    })
+}
+
+#[cfg(feature = "wba")]
+fn to_gatt_attribute_modified(buffer: &[u8]) -> Result<GattAttributeModified, crate::event::Error> {
+    require_len_at_least!(buffer, 8);
+
+    let data_len = LittleEndian::read_u16(&buffer[8..]) as usize;
+    require_len!(buffer, 8 + data_len);
+
+    let mut data = [0; MAX_ATTRIBUTE_LEN];
+    data[..data_len].copy_from_slice(&buffer[8..]);
+
+    let offset_field = LittleEndian::read_u16(&buffer[4..]);
+    Ok(GattAttributeModified {
+        conn_handle: ConnectionHandle(LittleEndian::read_u16(&buffer[0..])),
+        attr_handle: AttributeHandle(LittleEndian::read_u16(&buffer[2..])),
         offset: (offset_field & 0x7FFF),
         data_len,
         data_buf: data,
@@ -3041,6 +3101,51 @@ fn to_gatt_multi_notification(buffer: &[u8]) -> Result<GattMultiNotification, cr
         offset: LittleEndian::read_u16(&buffer[2..]),
         data_len,
         data,
+    })
+}
+
+#[cfg(feature = "wba")]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+/// GATT Notification Complete event
+pub struct GattNotificationComplete {
+    /// Specifies the ATT bearer for which the event
+    pub conn_handle: ConnectionHandle,
+    ///  Handle of the attribute that was modified
+    pub attr_handle: AttributeHandle,
+}
+
+#[cfg(feature = "wba")]
+fn to_gatt_notification_complete(
+    buffer: &[u8],
+) -> Result<GattNotificationComplete, crate::event::Error> {
+    require_len_at_least!(buffer, 4);
+
+    let data_len = LittleEndian::read_u16(&buffer[4..]);
+    let mut data = [0; 247];
+    data[..data_len as usize].copy_from_slice(&buffer[4..]);
+
+    Ok(GattNotificationComplete {
+        conn_handle: ConnectionHandle(LittleEndian::read_u16(&buffer[0..])),
+        attr_handle: AttributeHandle(LittleEndian::read_u16(&buffer[2..])),
+    })
+}
+
+#[cfg(feature = "wba")]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+/// GATT Notification Complete event
+pub struct GapPairingRequest {
+    /// Specifies the ATT bearer for which the event
+    pub conn_handle: ConnectionHandle,
+}
+
+#[cfg(feature = "wba")]
+fn to_gap_pairing_request(buffer: &[u8]) -> Result<GapPairingRequest, crate::event::Error> {
+    require_len_at_least!(buffer, 2);
+
+    Ok(GapPairingRequest {
+        conn_handle: ConnectionHandle(LittleEndian::read_u16(&buffer[0..])),
     })
 }
 
