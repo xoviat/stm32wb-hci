@@ -77,8 +77,11 @@
 #![no_std]
 #![allow(async_fn_in_trait)]
 
-#[cfg(all(feature = "wb", feature = "wba"))]
-compile_error!("Features `wb` and `wba` cannot be enabled at the same time.");
+#[cfg(any(
+    all(feature = "wb", feature = "wba"),
+    not(any(feature = "wb", feature = "wba"))
+))]
+compile_error!("Exactly one of features `wb` and `wba` must be enabled.");
 
 extern crate byteorder;
 
