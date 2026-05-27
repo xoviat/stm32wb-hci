@@ -14,7 +14,7 @@ use crate::event::command::{
     LeRandom, LeReadBufferSize, LeReadSupportedStates, LeStates, LeSupportedFeatures, LeTestEnd,
     LocalSupportedCommands, LocalSupportedFeatures, LocalVersionInfo, ReadBdAddr, ReadRssi,
 };
-use crate::{BadStatusError, BdAddr, ConnectionHandle};
+use crate::{BadStatusError, BdAddr, BdAddrType, BdAddrTypeError, ConnectionHandle};
 use bt_hci::cmd::cmd;
 use bt_hci::cmd::controller_baseband::{
     HostBufferSize as CmdHostBufferSize, HostNumberOfCompletedPackets, ReadTransmitPowerLevel,
@@ -2631,6 +2631,29 @@ pub enum PeerAddrType {
     /// value shall only be used by a Host if either the Host or the Controller does not support the
     /// LE Set Privacy Mode command.
     RandomIdentityAddress(crate::BdAddr),
+}
+
+pub fn to_peer_addr_type(bd_addr_type: u8, addr: BdAddr) -> Result<PeerAddrType, BdAddrTypeError> {
+    match AddrKind(bd_addr_type) {
+        AddrKind::PUBLIC => Ok(PeerAddrType::PublicDeviceAddress(addr)),
+        AddrKind::RESOLVABLE_PRIVATE_OR_PUBLIC => Ok(PeerAddrType::PublicIdentityAddress(addr)),
+        AddrKind::RANDOM => Ok(PeerAddrType::RandomDeviceAddress(addr)),
+        AddrKind::RESOLVABLE_PRIVATE_OR_RANDOM => Ok(PeerAddrType::RandomIdentityAddress(addr)),
+        _ => Err(BdAddrTypeError(bd_addr_type)),
+    }
+}
+
+impl TryFrom<PeerAddrType> for BdAddrType {
+    type Error = BdAddrTypeError;
+
+    fn try_from(value: PeerAddrType) -> Result<Self, Self::Error> {
+        match value {
+            PeerAddrType::PublicDeviceAddress(addr) => Ok(BdAddrType::Public(addr)),
+            PeerAddrType::PublicIdentityAddress(addr) => Ok(BdAddrType::Public(addr)),
+            PeerAddrType::RandomDeviceAddress(addr) => Ok(BdAddrType::Random(addr)),
+            PeerAddrType::RandomIdentityAddress(addr) => Ok(BdAddrType::Random(addr)),
+        }
+    }
 }
 
 impl From<PeerAddrType> for bt_hci::param::BdAddr {

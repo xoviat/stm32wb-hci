@@ -1,5 +1,6 @@
 extern crate stm32wb_hci as hci;
 
+use bt_hci::param::{LeFeatureMask, LmpFeatureMask};
 use hci::event::command::*;
 use hci::event::*;
 use hci::vendor::event::command::VendorReturnParameters;
@@ -247,14 +248,15 @@ fn read_local_supported_features() {
                 ReturnParameters::ReadLocalSupportedFeatures(params) => {
                     assert_eq!(
                         params.supported_features,
-                        LmpFeatures::THREE_SLOT_PACKETS
-                            | LmpFeatures::POWER_CONTROL_REQUESTS
-                            | LmpFeatures::POWER_CONTROL
-                            | LmpFeatures::ENHANCED_INQUIRY_SCAN
-                            | LmpFeatures::AFH_CLASSIFICATION_PERIPHERAL
-                            | LmpFeatures::ENHANCED_DATA_RATE_ESCO_2_MB_PER_S_MODE
-                            | LmpFeatures::NON_FLUSHABLE_PACKET_BOUNDARY_FLAG
-                            | LmpFeatures::EXTENDED_FEATURES
+                        LmpFeatureMask::new()
+                            .set_3_slot_packets(true)
+                            .set_power_control_requests(true)
+                            .set_power_control(true)
+                            .set_enhanced_inquiry_scan(true)
+                            .set_afh_classification_peripheral(true)
+                            .set_enhanced_data_rate_esco_2mbps_mode(true)
+                            .set_non_flushable_packet_boundary_flag(true)
+                            .set_ext_features(true)
                     );
                 }
                 other => panic!(
@@ -337,9 +339,10 @@ fn le_read_local_supported_features() {
                 ReturnParameters::LeReadLocalSupportedFeatures(event) => {
                     assert_eq!(
                         event.supported_features,
-                        LeFeatures::EXTENDED_REJECT_INDICATION
-                            | LeFeatures::STABLE_MODULATION_INDEX_TX
-                            | LeFeatures::MINIMUM_NUMBER_OF_USED_CHANNELS_PROCEDURE
+                        LeFeatureMask::new()
+                            .set_ext_reject_indication(true)
+                            .set_stable_modulation_index_tx(true)
+                            .set_min_used_channels_procedure(true)
                     );
                 }
                 other => panic!("Did not get LE Read Buffer Size return params: {:?}", other),
